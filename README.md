@@ -14,10 +14,3 @@ npm run dev
 
 Open `http://localhost:5173/?url=/path/to/scene.cryo` — the container is
 fetched from that URL and rendered.
-
-## Status
-
-MVP: loads the first `.glb`/`.gltf` entry found in the container's manifest.
-Full scene-graph interpretation (entities, transforms, materials from
-`scene.json`) is not yet wired up — see `@cryo/cryojs` for the container
-format.

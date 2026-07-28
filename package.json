@@ -1,17 +1,18 @@
 {
   "name": "@cryo/cryojs-component",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": false,
   "type": "module",
   "description": "Vue.js viewer component for .cryo scenes, rendered with three.js",
   "license": "MIT",
   "scripts": {
+    "build:cryojs": "npm --prefix tools/cryojs install && npm --prefix tools/cryojs run build",
     "dev": "vite",
-    "build": "vue-tsc -b --noEmit && vite build",
+    "build": "vue-tsc -b --noEmit && vite build && vite build --config vite.webcomponent.config.ts",
     "preview": "vite preview"
   },
   "dependencies": {
-    "@cryo/cryojs": "^3.1.2",
+    "@cryo/cryojs": "file:./tools/cryojs",
     "three": "^0.169.0",
     "vue": "^3.5.0"
   },

@@ -1,12 +1,181 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>cryojs-component</title>
-  </head>
-  <body>
-    <div id="app"></div>
-    <script type="module" src="/src/main.ts"></script>
-  </body>
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>cryojs-component · Scene-Viewer (Demo)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+      integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A=="
+      crossorigin="anonymous" referrerpolicy="no-referrer">
+<style>
+/* ==========================================================
+   cryojs-component · Szenen-Viewer (Demo)
+
+   Design uebernommen aus ux-prototypes/poc-69-tile-yaml-editor
+   (Toolbar, gepunkteter Graphen-Hintergrund, gnode-Kachel-Look).
+   Keine Palette/Sidebar/Chat — nur eine einzige Leaf-Kachel mit
+   dem three.js-Viewport. Standalone, kein Build-Step.
+   ========================================================== */
+:root{
+  --bg-canvas:#171a21; --bg-titlebar:#0f1115; --bg-elevated:#23262f;
+  --bg-node:#242832; --bg-node-head:#2a2e38; --bg-inset:#191c23;
+  --bg-hover:rgba(255,255,255,.055);
+  --border:rgba(255,255,255,.08); --border-strong:rgba(20,184,166,.42);
+  --text:#f7f8fa; --text-secondary:#d6d9e0; --text-muted:#b0b5c0; --text-dim:#8990a0;
+  --accent:#5eead4; --accent-strong:#14b8a6; --accent-soft:#99f6e4; --accent-bg:rgba(20,184,166,.14);
+  --danger:#f87171;
+  --mono:'JetBrains Mono',ui-monospace,monospace;
+  --sans:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100vh;overflow:hidden}
+body{font-family:var(--sans);background:var(--bg-canvas);color:var(--text);font-size:13.5px;line-height:1.5;-webkit-font-smoothing:antialiased;display:flex;flex-direction:column}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input{font-family:inherit;color:inherit;background:none;border:none}
+
+/* ── HEADER — plain glass bar, like antarctica.io's AppHeader ── */
+.gtoolbar{flex-shrink:0;height:64px;padding:0 24px;display:flex;align-items:center;gap:16px;background:rgba(255,255,255,.05);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,.1)}
+.gtoolbar img{width:40px;height:40px}
+.gt-title{font-weight:700;font-size:20px;background:linear-gradient(135deg,#60a5fa 0%,#3b82f6 50%,#2563eb 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+
+/* ── CANVAS (kein Sidebar, kein zweites Panel) ── */
+.gcanvas{flex:1;position:relative;overflow:hidden;
+  background-color:#15171d;
+  background-image:radial-gradient(rgba(255,255,255,.06) 1.1px, transparent 1.1px);
+  background-size:22px 22px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;}
+
+/* ── Lizenzhinweis — direkt auf der Graphen-Flaeche, unterhalb der Kachel ── */
+.gc-license{text-align:center;font-size:11px;line-height:1.6;color:var(--text-dim)}
+.gc-license b{color:var(--text-muted);font-weight:600}
+.gc-license a{color:var(--accent-soft);text-decoration:none}
+.gc-license a:hover{text-decoration:underline}
+
+/* ── EINZIGE LEAF-KACHEL — traegt den three.js-Viewport ──
+   .gnode selbst bleibt ungeclippt (sonst schneidet overflow:hidden die
+   randseitigen Ports in der Haelfte ab); die Rundung/Clip liegt auf dem
+   inneren .gnode-clip, exakt wie poc-69 (dort schneidet .gnode auch nichts,
+   da die Ports zur .gworld-Ebene gehoeren). */
+.gnode{position:relative;width:min(880px,86vw);height:min(620px,78vh)}
+.gnode-clip{width:100%;height:100%;background:var(--bg-node);outline:1px solid var(--border);border-radius:14px;box-shadow:0 14px 40px rgba(0,0,0,.4);display:flex;flex-direction:column;overflow:hidden}
+
+/* Platzhalter-Ports auf allen 4 Seiten — wie .gn-port im poc-69-Graphen, hier
+   ohne Wire/Funktion, nur die visuelle Anschluss-Andeutung der Kachel. Eng
+   beieinander um die Seitenmitte gruppiert (PORT_PITCH-Abstand wie poc-69),
+   nicht ueber die ganze Seite verteilt. Wie im Original abwechselnd belegt
+   (out=gefuellt teal, in=dunkel+farbiger Ring) und frei (empty=grau). */
+.gn-port{position:absolute;width:13px;height:13px;border-radius:50%;transform:translate(-50%,-50%);z-index:2}
+.gn-port.out{background:var(--accent-strong);border:2px solid #15171d}
+.gn-port.out.empty{background:#3a3f4a;border-color:#15171d}
+.gn-port.in{background:#15171d;border:2.5px solid #fbbf24}
+.gn-port.in.empty{border-color:#3a3f4a}
+.gn-port.top{left:calc(50% + var(--o));top:0}
+.gn-port.bottom{left:calc(50% + var(--o));top:100%}
+.gn-port.left{left:0;top:calc(50% + var(--o))}
+.gn-port.right{left:100%;top:calc(50% + var(--o))}
+.gn-head{height:36px;flex-shrink:0;display:flex;align-items:center;gap:8px;padding:0 12px;background:var(--bg-node-head);border-bottom:1px solid var(--border)}
+.gn-head i{font-size:11px;color:var(--accent-soft)}
+.gn-name{font-size:12.5px;font-weight:600;color:var(--text)}
+.gn-body{position:relative;flex:1;min-height:0}
+.gn-body cryo-scene{display:block;width:100%;height:100%}
+
+/* ── Achsen-Legende — Debug-Koordinatensystem (X/Y/Z) ── */
+.gn-axes{position:absolute;bottom:10px;left:10px;display:flex;gap:10px;pointer-events:none}
+.gn-axes span{display:inline-flex;align-items:center;gap:5px;padding:4px 8px;font-size:10.5px;font-family:var(--mono);font-weight:700;color:var(--text-secondary);background:rgba(15,17,21,.75);border-radius:6px;border:1px solid var(--border)}
+.gn-axes span::before{content:'';width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.gn-axes .ax-x::before{background:#f43f5e}
+.gn-axes .ax-y::before{background:#4ade80}
+.gn-axes .ax-z::before{background:#60a5fa}
+
+/* ── FOOTER — plain glass bar, like antarctica.io's AppFooter ── */
+.site-footer{flex-shrink:0;height:40px;padding:0 24px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.05);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-top:1px solid rgba(255,255,255,.1)}
+.site-footer nav{display:flex;align-items:center;gap:16px;font-size:11px}
+.site-footer .copy{color:var(--text-dim)}
+.site-footer a{color:var(--text-dim);text-decoration:none;transition:color .15s}
+.site-footer a:hover{color:var(--text-secondary)}
+</style>
+</head>
+<body>
+
+<div class="gtoolbar">
+  <img src="/cryo.png" alt="Cryo">
+  <span class="gt-title">cryojs-component</span>
+</div>
+
+<div class="gcanvas">
+  <div class="gnode">
+    <span class="gn-port top in" style="--o:-32px"></span>
+    <span class="gn-port top out" style="--o:-16px"></span>
+    <span class="gn-port top out empty" style="--o:0px"></span>
+    <span class="gn-port top out empty" style="--o:16px"></span>
+    <span class="gn-port top in empty" style="--o:32px"></span>
+
+    <span class="gn-port bottom in" style="--o:-32px"></span>
+    <span class="gn-port bottom out" style="--o:-16px"></span>
+    <span class="gn-port bottom out empty" style="--o:0px"></span>
+    <span class="gn-port bottom out empty" style="--o:16px"></span>
+    <span class="gn-port bottom in empty" style="--o:32px"></span>
+
+    <span class="gn-port left in" style="--o:-32px"></span>
+    <span class="gn-port left out" style="--o:-16px"></span>
+    <span class="gn-port left out empty" style="--o:0px"></span>
+    <span class="gn-port left out empty" style="--o:16px"></span>
+    <span class="gn-port left in empty" style="--o:32px"></span>
+
+    <span class="gn-port right in" style="--o:-32px"></span>
+    <span class="gn-port right out" style="--o:-16px"></span>
+    <span class="gn-port right out empty" style="--o:0px"></span>
+    <span class="gn-port right out empty" style="--o:16px"></span>
+    <span class="gn-port right in empty" style="--o:32px"></span>
+
+    <div class="gnode-clip">
+      <div class="gn-head">
+        <i class="fa-solid fa-cube"></i>
+        <span class="gn-name">Scene</span>
+      </div>
+      <div class="gn-body">
+        <cryo-scene id="scene"></cryo-scene>
+        <div class="gn-axes">
+          <span class="ax-x">X</span>
+          <span class="ax-y">Y</span>
+          <span class="ax-z">Z</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="gc-license">
+    3D model: "Damaged Helmet" by theblueturtle_ (CC BY 4.0)<br>
+    Source: <b>Khronos glTF Sample Assets</b><br>
+    License: <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">https://creativecommons.org/licenses/by/4.0/</a>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <nav>
+    <span class="copy">&copy; 2025 Patrice Chevillat</span>
+    <a href="https://chevp.github.io/site-policy/terms.html" target="_blank" rel="noopener">Terms</a>
+    <a href="https://chevp.github.io/site-policy/privacy.html" target="_blank" rel="noopener">Privacy</a>
+    <a href="https://chevp.github.io/site-policy/impressum.html" target="_blank" rel="noopener">Impressum</a>
+    <a href="https://chevp.github.io/site-policy/contact.html" target="_blank" rel="noopener">Contact</a>
+  </nav>
+</footer>
+
+<!-- The <cryo-scene> element itself — Vue + three.js + @cryo/cryojs bundled in
+     by Vite from this repo's src/web-component.ts (works in `vite dev` as-is;
+     `vite build` bundles it into dist/assets like any other module script). -->
+<script type="module" src="/src/web-component.ts"></script>
+<script type="module">
+// No content shipped in this repo — example from the official glTF sample set.
+const DEFAULT_MODEL_URL = 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/DamagedHelmet/glTF-Binary/DamagedHelmet.glb';
+
+const params = new URLSearchParams(window.location.search);
+const url = params.get('url') || DEFAULT_MODEL_URL;
+
+document.getElementById('scene').setAttribute('url', url);
+</script>
+</body>
 </html>
