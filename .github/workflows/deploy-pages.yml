@@ -18,20 +18,13 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout (incl. submodules)
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
-
-      - name: Build @cryo/cryojs submodule
-        run: |
-          npm --prefix tools/cryojs install
-          npm --prefix tools/cryojs run build
 
       - name: Install dependencies
         run: npm install

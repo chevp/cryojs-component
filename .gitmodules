@@ -1,3 +1,0 @@
-[submodule "tools/cryojs"]
-	path = tools/cryojs
-	url = https://github.com/chevp/cryojs.git
