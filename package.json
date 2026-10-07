@@ -4,7 +4,7 @@
   "private": false,
   "type": "module",
   "description": "Vue.js viewer component for .cryo scenes, rendered with three.js",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc -b --noEmit && vite build && vite build --config vite.webcomponent.config.ts",
